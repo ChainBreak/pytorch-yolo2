@@ -1,3 +1,11 @@
+### TODO
+- [ ] Convert to python 3.6 and pytorch 1.2
+- [ ] Train and Test on MOT
+- [ ] Test on MOT with out maximum supression
+- [ ] Test on MOT without nms but with ground truth cardinality (object count)
+
+
+
 ### pytorch-yolo2
 Convert https://pjreddie.com/darknet/yolo/ into pytorch. This repository is trying to achieve the following goals.
 - [x] implement RegionLoss, MaxPoolStride1, Reorg, GolbalAvgPool2d

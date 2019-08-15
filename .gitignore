@@ -6,3 +6,9 @@
 *.o
 *.so
 backup/
+
+data/
+
+vscode\.code-workspace
+
+weights/

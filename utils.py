@@ -387,15 +387,11 @@ def scale_bboxes(bboxes, width, height):
     return dets
       
 def file_lines(thefilepath):
-    count = 0
-    thefile = open(thefilepath, 'rb')
-    while True:
-        buffer = thefile.read(8192*1024)
-        if not buffer:
-            break
-        count += buffer.count('\n')
-    thefile.close( )
-    return count
+
+    with open(thefilepath, 'rb') as thefile:
+        lines = thefile.readlines()
+    return len(lines)
+    
 
 def get_image_size(fname):
     '''Determine the image type of fhandle and return its size.
