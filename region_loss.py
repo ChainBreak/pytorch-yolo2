@@ -6,12 +6,21 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from utils import *
 
+from SummaryWriterSingleton import SummaryWriterSingleton
+writer = SummaryWriterSingleton()
+
+def debug(*args):
+    # print(*args)
+    pass
+
+    
+
 def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW, noobject_scale, object_scale, sil_thresh, seen):
-    #print("",.shape)
-    print("target",target.shape)
+    #debug("",.shape)
+    debug("target",target.shape)
     #target has shape [nBatch,5*50] eg [32,250]
     nB = target.size(0)
-    print("nB",nB)
+    debug("nB",nB)
     nA = num_anchors
     nC = num_classes
     anchor_step = len(anchors)//num_anchors
@@ -30,7 +39,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
     #calc number of cells in the grid eg 13*13
     nPixels  = nH*nW
 
-    print("grid size nH,nW",(nH,nW))
+    debug("grid size nH,nW",(nH,nW))
     
 
     #for each sample in the batch. eg 32
@@ -38,7 +47,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
 
         #get the current predicionts from the model. Shape [4,anchors*grid_w*grid_h] .eg [4,5*13*13] = [4,845]
         cur_pred_boxes = pred_boxes[b*nAnchors:(b+1)*nAnchors].t()
-        print("cur_pred_boxes",cur_pred_boxes.shape)
+        debug("cur_pred_boxes",cur_pred_boxes.shape)
         cur_ious = torch.zeros(nAnchors) #shape [anchors*grid_w*grid_h] .eg [5*13*13] = [845]
 
         #for all possible ground truth targets in this image. Its hard coded to be a max of 50 ground truth targets per image
@@ -52,16 +61,16 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             gw = target[b][t*5+3]*nW
             gh = target[b][t*5+4]*nH
 
-            print("target x,y,w,x",(gx,gy,gw,gh))
+            debug("target x,y,w,x",(gx,gy,gw,gh))
 
             #repeat this targets coordinates across to create a tensor the same shape as the predicted box tensor eg [4,845]
             cur_gt_boxes = torch.FloatTensor([gx,gy,gw,gh]).repeat(nAnchors,1).t()
-            print("cur_gt_boxes",cur_gt_boxes.shape)
+            debug("cur_gt_boxes",cur_gt_boxes.shape)
 
             #for every prediction in the image, progresivly find the best IOU . eg shape [845] 
             cur_ious = torch.max(cur_ious, bbox_ious(cur_pred_boxes, cur_gt_boxes, x1y1x2y2=False))
-            print("cur_ious",cur_ious.shape)
-            print("conf_mask",conf_mask.shape)
+            debug("cur_ious",cur_ious.shape)
+            debug("conf_mask",conf_mask.shape)
         
         #reshape the list of ious to [anchors,height,width] eg [5,13,13]
         cur_ious = cur_ious.view(nA, nH, nW)
@@ -113,7 +122,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             gi = int(gx)
             gj = int(gy)
 
-            print("anchor_step",anchor_step)
+            debug("anchor_step",anchor_step)
 
             #Find the anchor size that best matches this ground truth size. eg 5 anchors
             for n in range(nA):
@@ -149,10 +158,10 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
 
             #Use the best anchor index and the grid cell indexes to get the predicted box that will be matched with this target
             pred_box = pred_boxes[b*nAnchors+best_n*nPixels+gj*nW+gi]
-            print("pred_boxes",pred_boxes.shape)
-            print("pred_box",pred_box.shape)
+            debug("pred_boxes",pred_boxes.shape)
+            debug("pred_box",pred_box.shape)
             
-            print("object_scale",object_scale)
+            debug("object_scale",object_scale)
 
             #activate the gradient for this prediction by setting the masks to one
             coord_mask[b][best_n][gj][gi] = 1
@@ -175,13 +184,13 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
 
             #the target confidence is the IOU between the predicted box with the best anchor iou and the ground truth
             
-            print("gt_box",gt_box)
-            print("pred_box",pred_box)
+            debug("gt_box",gt_box)
+            debug("pred_box",pred_box)
             iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False) # best_iou
             tconf[b][best_n][gj][gi] = iou
 
             #the class integer
-            print("cls",target[b][t*5])
+            debug("cls",target[b][t*5])
             tcls[b][best_n][gj][gi] = target[b][t*5]
 
             #if the iou is high enough count this as correct
@@ -268,7 +277,7 @@ class RegionLoss(nn.Module):
         
         #get all the class indexes for cells that have been assigned a ground truth by using the class mask
         tcls  = Variable(tcls.view(-1)[cls_mask.view(-1)].long().cuda())
-        print("tcls",tcls)
+        debug("tcls",tcls)
 
         coord_mask = Variable(coord_mask.cuda())
         #TODO not sure what the square root does
@@ -292,11 +301,11 @@ class RegionLoss(nn.Module):
         loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
         t4 = time.time()
         if False:
-            print('-----------------------------------')
-            print('        activation : %f' % (t1 - t0))
-            print(' create pred_boxes : %f' % (t2 - t1))
-            print('     build targets : %f' % (t3 - t2))
-            print('       create loss : %f' % (t4 - t3))
-            print('             total : %f' % (t4 - t0))
-        print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x, loss_y, loss_w, loss_h, loss_conf, loss_cls, loss))
+            debug('-----------------------------------')
+            debug('        activation : %f' % (t1 - t0))
+            debug(' create pred_boxes : %f' % (t2 - t1))
+            debug('     build targets : %f' % (t3 - t2))
+            debug('       create loss : %f' % (t4 - t3))
+            debug('             total : %f' % (t4 - t0))
+        debug('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x, loss_y, loss_w, loss_h, loss_conf, loss_cls, loss))
         return loss

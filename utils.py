@@ -18,6 +18,8 @@ def softmax(x):
     x = x/x.sum()
     return x
 
+def debug(*args):
+    print(*args)
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
     if x1y1x2y2:
@@ -111,7 +113,7 @@ def convert2cpu_long(gpu_matrix):
     return torch.LongTensor(gpu_matrix.size()).copy_(gpu_matrix)
 
 def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, only_objectness=1, validation=False):
-    anchor_step = len(anchors)/num_anchors
+    anchor_step = len(anchors)//num_anchors
     if output.dim() == 3:
         output = output.unsqueeze(0)
     batch = output.size(0)
@@ -136,8 +138,8 @@ def get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors, onl
     hs = torch.exp(output[3]) * anchor_h
 
     det_confs = torch.sigmoid(output[4])
-
-    cls_confs = torch.nn.Softmax()(Variable(output[5:5+num_classes].transpose(0,1))).data
+    
+    cls_confs = torch.nn.Softmax(dim=1)(Variable(output[5:5+num_classes].transpose(0,1))).data
     cls_max_confs, cls_max_ids = torch.max(cls_confs, 1)
     cls_max_confs = cls_max_confs.view(-1)
     cls_max_ids = cls_max_ids.view(-1)

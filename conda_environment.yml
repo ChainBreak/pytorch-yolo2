@@ -1,0 +1,23 @@
+name: yolo
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.6.8
+  - pytorch=1.2.0
+  - cudatoolkit=10.0
+  - torchvision
+  - jupyter
+  - matplotlib
+  - notebook
+  - opencv
+  - scipy
+  - pytest
+  - pip:
+    - torchsummary
+    - tb-nightly  # https://www.endtoend.ai/pytorch-tensorboard
+    - future      # until Tensorboard v1.14 released
+    
+
+

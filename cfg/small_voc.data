@@ -1,0 +1,5 @@
+train  = data/small_train.txt
+valid  = data/small_test.txt
+names = data/voc.names
+backup = backup
+gpus  = 0,1,2,3

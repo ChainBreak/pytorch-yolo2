@@ -1,9 +1,17 @@
 ### TODO
-- [ ] Convert to python 3.6 and pytorch 1.2
+- [x] Convert to python 3.6 and pytorch 1.2
 - [ ] Train and Test on MOT
 - [ ] Test on MOT with out maximum supression
 - [ ] Test on MOT without nms but with ground truth cardinality (object count)
 
+# Environment Setup
+Install Anaconda and run:
+
+`conda env create --file conda_environment.yml`
+
+If you make changes, update the environement with:
+
+`conda env update --file conda_environment.yml`
 
 
 ### pytorch-yolo2

@@ -9,6 +9,8 @@ backup/
 
 data/
 
+runs/
+
 vscode\.code-workspace
 
 weights/

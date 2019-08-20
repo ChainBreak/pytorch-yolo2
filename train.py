@@ -1,9 +1,13 @@
 from __future__ import print_function
+
 import sys
 if len(sys.argv) != 4:
     print('Usage:')
     print('python train.py datacfg cfgfile weightfile')
     exit()
+
+from SummaryWriterSingleton import SummaryWriterSingleton
+writer = SummaryWriterSingleton()
 
 import time
 import torch
@@ -24,6 +28,10 @@ from region_loss import RegionLoss
 from darknet import Darknet
 from models.tiny_yolo import TinyYoloNet
 
+
+
+def debug(*args):
+    print(*args)
 
 # Training settings
 datacfg       = sys.argv[1]
@@ -52,7 +60,7 @@ scales        = [float(scale) for scale in net_options['scales'].split(',')]
 #Train parameters
 max_epochs    = max_batches*batch_size//nsamples+1
 use_cuda      = True
-seed          = int(time.time())
+seed          = 42
 eps           = 1e-5
 save_interval = 10  # epoches
 dot_interval  = 70  # batches
@@ -147,6 +155,7 @@ def train(epoch):
     model.train()
     t1 = time.time()
     avg_time = torch.zeros(9)
+    avg_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         t2 = time.time()
         adjust_learning_rate(optimizer, processed_batches)
@@ -166,6 +175,7 @@ def train(epoch):
         t6 = time.time()
         region_loss.seen = region_loss.seen + data.data.size(0)
         loss = region_loss(output, target)
+        avg_loss += float(loss)
         t7 = time.time()
         loss.backward()
         t8 = time.time()
@@ -194,6 +204,9 @@ def train(epoch):
         t1 = time.time()
     print('')
     t1 = time.time()
+    avg_loss /= batch_idx+1
+    writer.add_scalar("train/loss",avg_loss,epoch)
+
     logging('training with %f samples/s' % (len(train_loader.dataset)/(t1-t0)))
     if (epoch+1) % save_interval == 0:
         logging('save weights to %s/%06d.weights' % (backupdir, epoch+1))
@@ -221,37 +234,44 @@ def test(epoch):
     for batch_idx, (data, target) in enumerate(test_loader):
         if use_cuda:
             data = data.cuda()
-        data = Variable(data, volatile=True)
-        output = model(data).data
-        all_boxes = get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors)
-        for i in range(output.size(0)):
-            boxes = all_boxes[i]
-            boxes = nms(boxes, nms_thresh)
-            truths = target[i].view(-1, 5)
-            num_gts = truths_length(truths)
-     
-            total = total + num_gts
-    
-            for i in range(len(boxes)):
-                if boxes[i][4] > conf_thresh:
-                    proposals = proposals+1
+        with torch.no_grad():
+            output = model(data).data
+            all_boxes = get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors)
+            for i in range(output.size(0)):
+                boxes = all_boxes[i]
+                debug("boxes",len(boxes))
+                debug("nms start")
+                boxes = nms(boxes, nms_thresh)
+                debug("nms end")
+                truths = target[i].view(-1, 5)
+                num_gts = truths_length(truths)
+            
+                total = total + num_gts
 
-            for i in range(num_gts):
-                box_gt = [truths[i][1], truths[i][2], truths[i][3], truths[i][4], 1.0, 1.0, truths[i][0]]
-                best_iou = 0
-                best_j = -1
-                for j in range(len(boxes)):
-                    iou = bbox_iou(box_gt, boxes[j], x1y1x2y2=False)
-                    if iou > best_iou:
-                        best_j = j
-                        best_iou = iou
-                if best_iou > iou_thresh and boxes[best_j][6] == box_gt[6]:
-                    correct = correct+1
+                for i in range(len(boxes)):
+                    if boxes[i][4] > conf_thresh:
+                        proposals = proposals+1
+
+                for i in range(num_gts):
+                    box_gt = [truths[i][1], truths[i][2], truths[i][3], truths[i][4], 1.0, 1.0, truths[i][0]]
+                    best_iou = 0
+                    best_j = -1
+                    for j in range(len(boxes)):
+                        iou = bbox_iou(box_gt, boxes[j], x1y1x2y2=False)
+                        if iou > best_iou:
+                            best_j = j
+                            best_iou = iou
+                    if best_iou > iou_thresh and boxes[best_j][6] == box_gt[6]:
+                        correct = correct+1
 
     precision = 1.0*correct/(proposals+eps)
     recall = 1.0*correct/(total+eps)
     fscore = 2.0*precision*recall/(precision+recall+eps)
     logging("precision: %f, recall: %f, fscore: %f" % (precision, recall, fscore))
+
+    writer.add_scalar("test/precision",precision,epoch)
+    writer.add_scalar("test/recall",recall,epoch)
+    writer.add_scalar("test/fscore",fscore,epoch)
 
 evaluate = False
 if evaluate:
@@ -259,5 +279,7 @@ if evaluate:
     test(0)
 else:
     for epoch in range(init_epoch, max_epochs): 
+        debug("train")
         train(epoch)
+        debug("test")
         test(epoch)
