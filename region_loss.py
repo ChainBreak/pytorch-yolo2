@@ -307,5 +307,5 @@ class RegionLoss(nn.Module):
             debug('     build targets : %f' % (t3 - t2))
             debug('       create loss : %f' % (t4 - t3))
             debug('             total : %f' % (t4 - t0))
-        debug('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x, loss_y, loss_w, loss_h, loss_conf, loss_cls, loss))
+        print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x, loss_y, loss_w, loss_h, loss_conf, loss_cls, loss))
         return loss

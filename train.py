@@ -28,6 +28,8 @@ from region_loss import RegionLoss
 from darknet import Darknet
 from models.tiny_yolo import TinyYoloNet
 
+from torchsummary import summary
+
 
 
 def debug(*args):
@@ -84,6 +86,9 @@ region_loss = model.loss
 
 model.load_weights(weightfile)
 model.print_network()
+
+summary(model.cuda(),(3,416,416))
+exit()
 
 region_loss.seen  = model.seen
 processed_batches = model.seen/batch_size
@@ -204,7 +209,9 @@ def train(epoch):
         t1 = time.time()
     print('')
     t1 = time.time()
+    print(avg_loss,batch_idx)
     avg_loss /= batch_idx+1
+    print(avg_loss,batch_idx)
     writer.add_scalar("train/loss",avg_loss,epoch)
 
     logging('training with %f samples/s' % (len(train_loader.dataset)/(t1-t0)))
@@ -237,8 +244,12 @@ def test(epoch):
         with torch.no_grad():
             output = model(data).data
             all_boxes = get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors)
+
             for i in range(output.size(0)):
                 boxes = all_boxes[i]
+                if len(boxes) > 100:
+                    logging("To many boxes %i so skipping" % (len(boxes)))
+                    continue
                 debug("boxes",len(boxes))
                 debug("nms start")
                 boxes = nms(boxes, nms_thresh)
